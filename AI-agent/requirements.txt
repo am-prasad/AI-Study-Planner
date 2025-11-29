@@ -1,0 +1,42 @@
+# Core & Utilities
+numpy
+pandas
+scipy
+
+# Backend & API
+fastapi
+uvicorn
+python-multipart
+pydantic
+
+# Database
+sqlalchemy
+psycopg2-binary       # If using PostgreSQL
+pymongo               # If using MongoDB
+
+# NLP & AI Models
+transformers
+torch
+sentence-transformers
+spacy
+
+# Machine Learning
+scikit-learn
+xgboost               # Optional for advanced ML models
+
+# PDF / Text Processing
+PyPDF2
+pdfminer.six
+nltk
+
+# Visualization (if generating backend plots)
+matplotlib
+plotly
+seaborn
+
+# Authentication
+python-jose[cryptography]
+passlib
+
+# Async / HTTP requests
+httpx

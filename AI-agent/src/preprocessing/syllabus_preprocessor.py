@@ -1,0 +1,1 @@
+from vectorstore.pinecone_handler import store_sections
