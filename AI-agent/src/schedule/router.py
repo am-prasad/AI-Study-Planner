@@ -1,3 +1,5 @@
+# src/schedule/router.py
+
 from fastapi import APIRouter, UploadFile, File, Form
 from .schemas import ScheduleRequest, ScheduleResponse
 from .generator import generate_schedule_from_headings, generate_schedule
@@ -12,17 +14,22 @@ router = APIRouter(prefix="/schedule", tags=["Schedule"])
 
 
 @router.post("/", response_model=ScheduleResponse)
-def create_schedule(req: ScheduleRequest):
-    schedule = generate_schedule(
+def create_schedule(req: ScheduleRequest) -> ScheduleResponse:
+    # req.topics is List[Topic] -> pass directly
+    result = generate_schedule(
         topics=req.topics,
         daily_hours=req.daily_hours,
         days=req.days,
     )
-    return schedule
+    # result is {"schedule": [...]}
+    return ScheduleResponse(**result)
 
 
 @router.post("/upload-pdf")
-async def upload_pdf(file: UploadFile = File(...), total_hours: float = Form(...)):
+async def upload_pdf(
+    file: UploadFile = File(...),
+    total_hours: float = Form(...),
+):
     if not file.filename.endswith(".pdf"):
         return {"error": "Please upload a PDF file"}
 
@@ -42,7 +49,7 @@ async def upload_pdf(file: UploadFile = File(...), total_hours: float = Form(...
     schedule = generate_schedule_from_headings(
         headings=headings,
         total_hours=total_hours,
-        difficulty_scores=difficulty_scores,  # adjust signature accordingly
+        difficulty_scores=difficulty_scores,
     )
 
     return {
