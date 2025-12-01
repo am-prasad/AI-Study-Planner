@@ -2,17 +2,20 @@
 numpy
 pandas
 scipy
+dotenv
 
 # Backend & API
 fastapi
 uvicorn
 python-multipart
 pydantic
+pdfplumber
 
 # Database
 sqlalchemy
 psycopg2-binary       # If using PostgreSQL
-pymongo               # If using MongoDB
+pymongo    
+fitz                   # If using MongoDB
 
 # NLP & AI Models
 transformers
@@ -28,6 +31,7 @@ xgboost               # Optional for advanced ML models
 PyPDF2
 pdfminer.six
 nltk
+PyMuPDF
 
 # Visualization (if generating backend plots)
 matplotlib
@@ -37,6 +41,10 @@ seaborn
 # Authentication
 python-jose[cryptography]
 passlib
+pinecone
 
 # Async / HTTP requests
 httpx
+
+spacy>=3.0.0
+https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl
