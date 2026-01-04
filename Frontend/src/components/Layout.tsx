@@ -29,7 +29,6 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: Home },
   { path: '/subjects', label: 'Subjects', icon: BookOpen },
   { path: '/timetable', label: 'Timetable', icon: Calendar },
-  { path: '/analytics', label: 'Analytics', icon: BarChart3 },
 ];
 
 export const Layout = ({ children }: LayoutProps) => {
@@ -74,7 +73,7 @@ export const Layout = ({ children }: LayoutProps) => {
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar className="h-10 w-10 border-2 border-primary/20">
                   <AvatarFallback className="gradient-primary text-white">
-                    {user?.name.charAt(0).toUpperCase()}
+                    {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
                   </AvatarFallback>
                 </Avatar>
               </Button>
@@ -83,12 +82,12 @@ export const Layout = ({ children }: LayoutProps) => {
               <div className="flex items-center gap-2 p-2">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback className="gradient-primary text-white text-sm">
-                    {user?.name.charAt(0).toUpperCase()}
+                    {user?.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
-                  <span className="text-sm font-medium">{user?.name}</span>
-                  <span className="text-xs text-muted-foreground">{user?.email}</span>
+                  <span className="text-sm font-medium">{user?.displayName || 'User'}</span>
+                  <span className="text-xs text-muted-foreground">{user?.email || 'N/A'}</span>
                 </div>
               </div>
               <DropdownMenuSeparator />

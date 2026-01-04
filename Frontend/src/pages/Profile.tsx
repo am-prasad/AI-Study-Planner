@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,34 +6,110 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Settings, Mail, Phone, Building, GraduationCap, Target, Save, Camera } from 'lucide-react';
+import { User as UserIcon, Settings, Mail, Phone, Building, GraduationCap, Target, Save, Camera } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import { authenticatedFetch, API_BASE_URL } from '@/lib/api';
+import { auth } from '../config/firebase';
+
+interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  avatar?: string;
+  username?: string;
+  phone?: string;
+  institution?: string;
+  studyGoal?: string;
+  grade?: string;
+}
 
 export default function Profile() {
-  const { user, updateUser } = useAuthStore();
+  const { user, updateUser, isAuthInitialized } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
-  
-  const [formData, setFormData] = useState({
-    name: user?.name || '',
-    username: user?.username || '',
-    email: user?.email || '',
-    phone: user?.phone || '',
-    institution: user?.institution || '',
-    grade: user?.grade || '',
-    studyGoal: user?.studyGoal || '',
+  const [loading, setLoading] = useState(true);
+  const [profileData, setProfileData] = useState<UserProfile | null>(null);
+
+  const [formData, setFormData] = useState<Partial<UserProfile>>({
+    displayName: '',
+    username: '',
+    email: '',
+    phone: '',
+    institution: '',
+    grade: '',
+    studyGoal: '',
   });
 
-  const handleSave = () => {
-    updateUser(formData);
-    setIsEditing(false);
-    toast.success('Profile updated successfully!');
+  const fetchUserProfile = useCallback(async () => {
+    if (user?.uid) {
+      // Ensure Firebase auth.currentUser is also available before proceeding
+      if (!auth.currentUser) {
+        console.warn("auth.currentUser not yet available, waiting...");
+        // You might want a more sophisticated waiting mechanism here,
+        // e.g., a timeout or a promise that resolves when auth is ready.
+        // For now, we'll just return and let useEffect potentially re-trigger.
+        setLoading(false); // Stop loading if auth.currentUser isn't ready
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const data: UserProfile = await authenticatedFetch(`/users/profile/${user.uid}`);
+        setProfileData(data);
+        setFormData({
+          displayName: data.displayName || '',
+          username: data.username || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          institution: data.institution || '',
+          grade: data.grade || '',
+          studyGoal: data.studyGoal || '',
+        });
+      } catch (error) {
+        console.error("Failed to fetch user profile:", error);
+        toast.error("Failed to load profile data.");
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      setLoading(false);
+    }
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (isAuthInitialized && user?.uid) {
+      fetchUserProfile();
+    } else if (isAuthInitialized && !user?.uid) {
+      // If auth is initialized but no user, stop loading immediately
+      setLoading(false);
+    }
+  }, [fetchUserProfile, isAuthInitialized, user?.uid]);
+
+  const handleSave = async () => {
+    if (!user?.uid) {
+      toast.error("User not authenticated.");
+      return;
+    }
+    try {
+      const updatedData = await authenticatedFetch(`/users/profile/${user.uid}`, { // Use relative path
+        method: 'PUT',
+        body: JSON.stringify(formData),
+      });
+      setProfileData(updatedData);
+      updateUser(updatedData); // Update global auth store
+      setIsEditing(false);
+      toast.success('Profile updated successfully!');
+    } catch (error) {
+      console.error("Failed to update profile:", error);
+      toast.error("Failed to update profile.");
+    }
   };
 
   const getInitials = (name: string) => {
     return name
       .split(' ')
+      .filter(Boolean) // Filter out empty strings from split
       .map(n => n[0])
       .join('')
       .toUpperCase()
@@ -67,6 +143,16 @@ export default function Profile() {
     };
     return labels[goal] || goal;
   };
+
+  if (loading || !isAuthInitialized) {
+    return (
+      <Layout>
+        <div className="flex justify-center items-center h-screen-minus-navbar">
+          Loading profile...
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -106,9 +192,9 @@ export default function Profile() {
                 <div className="flex flex-col items-center text-center">
                   <div className="relative group">
                     <Avatar className="h-24 w-24 border-4 border-primary/20">
-                      <AvatarImage src={user?.avatar} />
+                      <AvatarImage src={profileData?.avatar} />
                       <AvatarFallback className="text-2xl gradient-primary text-white">
-                        {getInitials(user?.name || 'U')}
+                        {getInitials(profileData?.displayName || 'U')}
                       </AvatarFallback>
                     </Avatar>
                     {isEditing && (
@@ -117,10 +203,10 @@ export default function Profile() {
                       </button>
                     )}
                   </div>
-                  <h3 className="mt-4 text-xl font-semibold">{user?.name || 'User'}</h3>
-                  <p className="text-muted-foreground">@{user?.username || 'username'}</p>
-                  {user?.institution && (
-                    <p className="text-sm text-muted-foreground mt-1">{user.institution}</p>
+                  <h3 className="mt-4 text-xl font-semibold">{profileData?.displayName || 'User'}</h3>
+                  <p className="text-muted-foreground">@{profileData?.username || 'username'}</p>
+                  {profileData?.institution && (
+                    <p className="text-sm text-muted-foreground mt-1">{profileData.institution}</p>
                   )}
                 </div>
               </CardContent>
@@ -137,7 +223,7 @@ export default function Profile() {
             <Card className="glass-card border-border/50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5 text-primary" />
+                  <UserIcon className="h-5 w-5 text-primary" />
                   Personal Information
                 </CardTitle>
               </CardHeader>
@@ -145,23 +231,23 @@ export default function Profile() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
+                      <UserIcon className="h-4 w-4 text-muted-foreground" />
                       Full Name
                     </Label>
                     {isEditing ? (
                       <Input
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        value={formData.displayName}
+                        onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
                         className="h-11"
                       />
                     ) : (
-                      <p className="text-foreground py-2">{user?.name || '-'}</p>
+                      <p className="text-foreground py-2">{profileData?.displayName || '-'}</p>
                     )}
                   </div>
 
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
+                      <UserIcon className="h-4 w-4 text-muted-foreground" />
                       Username
                     </Label>
                     {isEditing ? (
@@ -171,7 +257,7 @@ export default function Profile() {
                         className="h-11"
                       />
                     ) : (
-                      <p className="text-foreground py-2">@{user?.username || '-'}</p>
+                      <p className="text-foreground py-2">@{profileData?.username || '-'}</p>
                     )}
                   </div>
 
@@ -188,7 +274,7 @@ export default function Profile() {
                         className="h-11"
                       />
                     ) : (
-                      <p className="text-foreground py-2">{user?.email || '-'}</p>
+                      <p className="text-foreground py-2">{profileData?.email || '-'}</p>
                     )}
                   </div>
 
@@ -205,7 +291,7 @@ export default function Profile() {
                         className="h-11"
                       />
                     ) : (
-                      <p className="text-foreground py-2">{user?.phone || '-'}</p>
+                      <p className="text-foreground py-2">{profileData?.phone || '-'}</p>
                     )}
                   </div>
 
@@ -221,7 +307,7 @@ export default function Profile() {
                         className="h-11"
                       />
                     ) : (
-                      <p className="text-foreground py-2">{user?.institution || '-'}</p>
+                      <p className="text-foreground py-2">{profileData?.institution || '-'}</p>
                     )}
                   </div>
 
@@ -252,7 +338,7 @@ export default function Profile() {
                         </SelectContent>
                       </Select>
                     ) : (
-                      <p className="text-foreground py-2">{getGradeLabel(user?.grade || '') || '-'}</p>
+                      <p className="text-foreground py-2">{getGradeLabel(profileData?.grade || '') || '-'}</p>
                     )}
                   </div>
 
@@ -279,7 +365,7 @@ export default function Profile() {
                         </SelectContent>
                       </Select>
                     ) : (
-                      <p className="text-foreground py-2">{getStudyGoalLabel(user?.studyGoal || '') || '-'}</p>
+                      <p className="text-foreground py-2">{getStudyGoalLabel(profileData?.studyGoal || '') || '-'}</p>
                     )}
                   </div>
                 </div>

@@ -4,34 +4,25 @@ import User from '../models/User.js';
 
 const registerUser = async (req, res) => {
   try {
-    const { email, password, displayName } = req.body;
+    const { uid, email } = req.user;
+    const displayName = req.user.displayName || ''; // Default to empty string if displayName is undefined/null
+    const { username = '', phone = '', institution = '', studyGoal = '', grade = '' } = req.body; // Get additional info from body
 
-    if (!email || !password) {
-      return res.status(400).send({ message: "Email and password are required." });
+    const userDoc = await db.collection('users').doc(uid).get();
+
+    if (userDoc.exists) {
+      // If user profile already exists in Firestore, return it
+      return res.status(200).send({ message: "User profile already exists", user: userDoc.data() });
     }
 
-    // In a real application, user creation/authentication would ideally happen on the frontend
-    // using Firebase client SDKs. The Admin SDK here is more for managing users created elsewhere
-    // or for privileged operations.
-    // For this example, we'll simulate user creation directly for demonstration purposes,
-    // but a production app would involve client-side Firebase Auth.
+    // If not, create a new user profile in Firestore
+    const newUser = new User(uid, email, displayName, username, phone, institution, studyGoal, grade);
+    await db.collection('users').doc(uid).set(newUser.toFirestore());
 
-    const userRecord = await admin.auth().createUser({
-      email,
-      password,
-      displayName,
-    });
-
-    const newUser = new User(userRecord.uid, email, displayName);
-    await db.collection('users').doc(userRecord.uid).set(newUser.toFirestore());
-
-    res.status(201).send({ message: "User registered successfully", user: newUser.toFirestore() });
+    res.status(201).send({ message: "User profile created successfully", user: newUser.toFirestore() });
   } catch (error) {
-    console.error("Error registering user:", error);
-    if (error.code === 'auth/email-already-exists') {
-      return res.status(409).send({ message: "Email already registered." });
-    }
-    res.status(500).send({ message: "Failed to register user", error: error.message });
+    console.error("Error processing user registration/profile creation:", error);
+    res.status(500).send({ message: "Failed to create/fetch user profile", error: error.message });
   }
 };
 
@@ -52,8 +43,30 @@ const getUserProfile = async (req, res) => {
   }
 };
 
+const updateUserProfile = async (req, res) => {
+  try {
+    const { uid } = req.params;
+    const updates = req.body; // Contains partial user data to update
+
+    // Ensure the authenticated user is updating their own profile
+    if (req.user.uid !== uid) {
+      return res.status(403).send({ message: "Unauthorized to update this profile." });
+    }
+
+    const userRef = db.collection('users').doc(uid);
+    await userRef.update(updates);
+
+    const updatedUserDoc = await userRef.get();
+    res.status(200).send({ id: updatedUserDoc.id, ...updatedUserDoc.data() });
+  } catch (error) {
+    console.error("Error updating user profile:", error);
+    res.status(500).send({ message: "Failed to update user profile", error: error.message });
+  }
+};
+
 export {
   registerUser,
   getUserProfile,
+  updateUserProfile,
 };
 
